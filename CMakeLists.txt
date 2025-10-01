@@ -11,4 +11,5 @@ target_include_directories(Screencap PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_p
 target_link_libraries(Screencap PRIVATE 
     User32.lib
     D3D11.lib
+    windowsapp.lib
 )
