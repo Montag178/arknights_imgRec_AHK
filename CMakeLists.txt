@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_executable(Screencap screencap.cpp)
 target_compile_options(Screencap PRIVATE /await)
 
-target_include_directories(Screencap PRIVATE C:\\Users\\reward\\Projects\\WindowsAPI_Cpp\\vscode_WindowsAPI\\include)
+target_include_directories(Screencap PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_link_libraries(Screencap PRIVATE 
     User32.lib
