@@ -2,18 +2,17 @@
   "version": 2,
   "configurePresets": [
     {
-      "name": "vcpkg-ninja-msvc",
+      "name": "ninja-msvc",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_C_COMPILER": "cl.exe",
-        "CMAKE_CXX_COMPILER": "cl.exe",
-        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        "CMAKE_CXX_COMPILER": "cl.exe"
       }
     },
     {
-      "name": "vcpkg-debug",
-      "inherits": "vcpkg-ninja-msvc",
+      "name": "debug",
+      "inherits": "ninja-msvc",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
       }
