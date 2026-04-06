@@ -1,6 +1,7 @@
 ﻿#include <functional>
 
 #include <unknwn.h> 
+#include <objbase.h>
 #include <windows.graphics.directx.direct3d11.interop.h>
 #include <windows.graphics.capture.interop.h>
 
@@ -102,6 +103,7 @@ int CaptureWindow(HWND hwnd, const wchar_t* filename, winrt::com_ptr<ID3D11Devic
     winrt::com_ptr<::IInspectable> device;
     winrt::check_hresult(CreateDirect3D11DeviceFromDXGIDevice(dxgiDevice.get(), device.put()));
     auto size = item.Size();
+    std::cout << "Window size: " << size.Width << "x" << size.Height << std::endl;
 
     auto pool = Direct3D11CaptureFramePool::Create(
         device.as<winrt::Windows::Graphics::DirectX::Direct3D11::IDirect3DDevice>(), 
@@ -110,7 +112,7 @@ int CaptureWindow(HWND hwnd, const wchar_t* filename, winrt::com_ptr<ID3D11Devic
         size);
     auto session = pool.CreateCaptureSession(item);
     if (!session.IsSupported()){
-        std::cout << "err, world" << std::endl;
+        std::cout << "session is not supported" << std::endl;
         return 2;
     }
     session.StartCapture();
@@ -119,7 +121,7 @@ int CaptureWindow(HWND hwnd, const wchar_t* filename, winrt::com_ptr<ID3D11Devic
     for (int i=0; i<10; ++i) { // 最大約500ms待つ
         frame = pool.TryGetNextFrame();
         if (frame) {
-            std::cout << "err, world" << std::endl;
+            std::cout << "frame captured" << std::endl;
             break; 
         }
         Sleep(10);
@@ -133,8 +135,8 @@ int CaptureWindow(HWND hwnd, const wchar_t* filename, winrt::com_ptr<ID3D11Devic
 
     winrt::com_ptr<ID3D11Texture2D> stagingTex;
     D3D11_TEXTURE2D_DESC desc = {};
-    desc.Width              = 1920;
-    desc.Height             = 1080;
+    desc.Width              = size.Width;
+    desc.Height             = size.Height;
     desc.MipLevels          = 1;
     desc.ArraySize          = 1;
     desc.Format             = DXGI_FORMAT_B8G8R8A8_UNORM;
@@ -146,6 +148,7 @@ int CaptureWindow(HWND hwnd, const wchar_t* filename, winrt::com_ptr<ID3D11Devic
     desc.MiscFlags          = 0;
     winrt::check_hresult(d3dDevice->CreateTexture2D(&desc, nullptr, stagingTex.put()));
     d3dContext->CopyResource(stagingTex.get(), frameTex.get());
+    std::cout << "CopyResource completed" << std::endl;
     D3D11_MAPPED_SUBRESOURCE mapped = {};
     HRESULT hr = d3dContext->Map(
         stagingTex.get(),
@@ -154,7 +157,16 @@ int CaptureWindow(HWND hwnd, const wchar_t* filename, winrt::com_ptr<ID3D11Devic
         0,
         &mapped
     );
-    if (FAILED(hr)) return 3;
+    if (FAILED(hr)) {
+        std::cout << "Map failed with HRESULT: " << std::hex << hr << std::endl;
+        return 3;
+    }
+    std::cout << "Map succeeded, RowPitch: " << mapped.RowPitch << std::endl;
+    // Check first pixel
+    if (mapped.pData) {
+        uint8_t* data = (uint8_t*)mapped.pData;
+        std::cout << "First pixel: R=" << (int)data[0] << " G=" << (int)data[1] << " B=" << (int)data[2] << " A=" << (int)data[3] << std::endl;
+    }
 
     // DXGI_MAPPED_RECT rect;
 
@@ -164,7 +176,7 @@ int CaptureWindow(HWND hwnd, const wchar_t* filename, winrt::com_ptr<ID3D11Devic
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     std::cout << "time" << duration << "ms" << std::endl;
-    stbi_write_png("C:\\Users\\reward\\Desktop\\capture.png", width, height, 4, mapped.pData, mapped.RowPitch);
+    stbi_write_png("C:\\Users\\TumorNecrosisFactor\\Desktop\\capture.png", width, height, 4, mapped.pData, mapped.RowPitch);
 
     // frameSurface->Unmap();
     d3dContext->Unmap(stagingTex.get(), 0);
@@ -175,10 +187,39 @@ int CaptureWindow(HWND hwnd, const wchar_t* filename, winrt::com_ptr<ID3D11Devic
 #ifdef BUILD_DLL
 extern "C" __declspec(dllexport)
 int RunProcess(){
-    return 0;
+    static bool initialized = false;
+    if (!initialized) {
+        HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+        if (hr == S_OK || hr == S_FALSE) {
+            initialized = true;
+        } else {
+            std::cerr << "Failed to initialize COM apartment. HRESULT: " << std::hex << hr << std::endl;
+            return (int)hr;
+        }
+    }
+    try {
+        winrt::com_ptr<ID3D11Device> d3dDevice;
+        winrt::com_ptr<ID3D11DeviceContext> d3dContext;
+        const wchar_t* filename = L"C:\\Users\\TumorNecrosisFactor\\Desktop\\capture.png";
+        int result = CaptureWindow(GetForegroundWindow(), filename, d3dDevice, d3dContext);
+        return result;
+    }
+    catch (const winrt::hresult_error& ex) {
+        std::cerr << "WinRT error: " << std::hex << ex.code() << " - " << ex.message().c_str() << std::endl;
+        return (int)ex.code();
+    }
+    catch (const std::exception& ex) {
+        std::cerr << "Exception: " << ex.what() << std::endl;
+        return -1;
+    }
+    catch (...) {
+        std::cerr << "Unknown exception" << std::endl;
+        return -2;
+    }
 }
 #endif
 
+#ifndef BUILD_DLL
 int main(){
     //prepare bitmap
     #ifdef TEST_MODE
@@ -196,3 +237,4 @@ int main(){
     #endif
     return 0;
 }
+#endif
