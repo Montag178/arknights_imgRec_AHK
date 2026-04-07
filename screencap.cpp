@@ -19,76 +19,58 @@
 #include "stb_image_write.h"
 #include "direct3d11.interop.h"
 
-using namespace winrt;
 using namespace winrt::Windows::Graphics::Capture;
 using namespace winrt::Windows::Graphics::DirectX::Direct3D11;
 
-bool ReadTexture(ID3D11Texture2D* tex, int width, int height,
-    const std::function<void(void*, int)>& callback) {
+// these variables keep alive until this dll is unloaded, which helps shorten execution time
+static bool initialized = false;
+static winrt::com_ptr<ID3D11Device> d3dDevice;
+static winrt::com_ptr<ID3D11DeviceContext> d3dContext;
 
-    com_ptr<ID3D11Device> device;
-    com_ptr<ID3D11DeviceContext> ctx;
-    tex->GetDevice(device.put());
-    device->GetImmediateContext(ctx.put());
-
-    // create query
-    com_ptr<ID3D11Query> query_event;
-    {
-        D3D11_QUERY_DESC qdesc = { D3D11_QUERY_EVENT , 0 };
-        device->CreateQuery(&qdesc, query_event.put());
+void InitializeD3D()
+{
+    HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    if (FAILED(hr)) {
+        if (hr == RPC_E_CHANGED_MODE) {
+            // COM Library is already initialized by ahk, you can ignore this error
+        } else {
+            throw winrt::hresult_error(hr);
+        }
     }
 
-    // create staging texture
-    com_ptr<ID3D11Texture2D> staging;
-    {
-        D3D11_TEXTURE2D_DESC tmp;
-        tex->GetDesc(&tmp);
-        D3D11_TEXTURE2D_DESC desc{ (UINT)width, (UINT)height, 1, 1,
-            tmp.Format, { 1, 0 }, D3D11_USAGE_STAGING, 0, D3D11_CPU_ACCESS_READ, 0 };
-        device->CreateTexture2D(&desc, nullptr, staging.put());
-    }
+    D3D_FEATURE_LEVEL featureLevel;
+    winrt::check_hresult(D3D11CreateDevice(
+        nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+        nullptr, 0, D3D11_SDK_VERSION, d3dDevice.put(), &featureLevel, d3dContext.put()));
 
-    // dispatch copy
-    {
-        D3D11_BOX box{ };
-        box.right = width;
-        box.bottom = height;
-        box.back = 1;
-        ctx->CopySubresourceRegion(staging.get(), 0, 0, 0, 0, tex, 0, &box);
-        ctx->End(query_event.get());
-        ctx->Flush();
-    }
+    initialized = true;
+}
 
-    // wait for copy to complete
-    int wait_count = 0;
-    while (ctx->GetData(query_event.get(), nullptr, 0, 0) == S_FALSE) {
-        ++wait_count; // just for debug
+int HandleException()
+{
+    try {
+        throw;
     }
-
-    // map
-    D3D11_MAPPED_SUBRESOURCE mapped{ };
-    if (SUCCEEDED(ctx->Map(staging.get(), 0, D3D11_MAP_READ, 0, &mapped))) {
-        D3D11_TEXTURE2D_DESC desc{ };
-        staging->GetDesc(&desc);
-
-        callback(mapped.pData, mapped.RowPitch);
-        ctx->Unmap(staging.get(), 0);
-        return true;
+    catch (const winrt::hresult_error& ex) {
+        std::cerr << "WinRT error: " << std::hex << ex.code() << " - " << ex.message().c_str() << std::endl;
+        return (int)ex.code();
     }
-    return false;
+    catch (const std::exception& ex) {
+        std::cerr << "Exception: " << ex.what() << std::endl;
+        return -1;
+    }
+    catch (...) {
+        std::cerr << "Unknown exception" << std::endl;
+        return -2;
+    }
 }
 
 int CaptureWindow(HWND hwnd, const wchar_t* filename, winrt::com_ptr<ID3D11Device>& d3dDevice, winrt::com_ptr<ID3D11DeviceContext>& d3dContext)
 {
-    auto start = std::chrono::high_resolution_clock::now();
 
-    D3D_FEATURE_LEVEL featureLevel;
-    winrt::check_hresult(D3D11CreateDevice(
-    nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
-        nullptr, 0, D3D11_SDK_VERSION, d3dDevice.put(), &featureLevel, d3dContext.put()));
     GraphicsCaptureItem item{ nullptr };
 
-    auto activationFactory = get_activation_factory<GraphicsCaptureItem>();
+    auto activationFactory = winrt::get_activation_factory<GraphicsCaptureItem>();
     auto interop = activationFactory.as<IGraphicsCaptureItemInterop>();
 
     winrt::check_hresult(
@@ -111,6 +93,7 @@ int CaptureWindow(HWND hwnd, const wchar_t* filename, winrt::com_ptr<ID3D11Devic
         1,
         size);
     auto session = pool.CreateCaptureSession(item);
+    auto start = std::chrono::high_resolution_clock::now();
     if (!session.IsSupported()){
         std::cout << "session is not supported" << std::endl;
         return 2;
@@ -187,54 +170,37 @@ int CaptureWindow(HWND hwnd, const wchar_t* filename, winrt::com_ptr<ID3D11Devic
 #ifdef BUILD_DLL
 extern "C" __declspec(dllexport)
 int RunProcess(){
-    static bool initialized = false;
-    if (!initialized) {
-        HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
-        if (hr == S_OK || hr == S_FALSE) {
-            initialized = true;
-        } else {
-            std::cerr << "Failed to initialize COM apartment. HRESULT: " << std::hex << hr << std::endl;
-            return (int)hr;
-        }
-    }
     try {
-        winrt::com_ptr<ID3D11Device> d3dDevice;
-        winrt::com_ptr<ID3D11DeviceContext> d3dContext;
+        if (!initialized) {
+            InitializeD3D();
+        }
         const wchar_t* filename = L"C:\\Users\\TumorNecrosisFactor\\Desktop\\capture.png";
         int result = CaptureWindow(GetForegroundWindow(), filename, d3dDevice, d3dContext);
         return result;
-    }
-    catch (const winrt::hresult_error& ex) {
-        std::cerr << "WinRT error: " << std::hex << ex.code() << " - " << ex.message().c_str() << std::endl;
-        return (int)ex.code();
-    }
-    catch (const std::exception& ex) {
-        std::cerr << "Exception: " << ex.what() << std::endl;
-        return -1;
-    }
-    catch (...) {
-        std::cerr << "Unknown exception" << std::endl;
-        return -2;
+    } catch (...) {
+        return HandleException();
     }
 }
-#endif
 
-#ifndef BUILD_DLL
+#else
+
 int main(){
-    //prepare bitmap
-    #ifdef TEST_MODE
-        std::cout << "this is test mode" << std::endl;
-    #else
-        std::cout << "Hello, world" << std::endl;
-        winrt::init_apartment();
-        winrt::com_ptr<ID3D11Device> d3dDevice;
-        winrt::com_ptr<ID3D11DeviceContext> d3dContext;
-        const wchar_t* filename = L"C:/Users/reward/Desktop/capture.png";
-        CaptureWindow(GetForegroundWindow(), filename, d3dDevice, d3dContext);
-        // int width = 800, height = 600;
-        // std::vector<uint8_t> dummy(width * height * 4, 0xFF);
-        // stbi_write_png("C:\\Users\\reward\\Desktop\\capture.png", width, height, 4, dummy.data(), width * 4);
-    #endif
+#ifdef BUILD_EXE_TEST
+    std::cout << "this is test mode" << std::endl;
     return 0;
+
+#else //(BUILD_EXE)
+    try {
+        if (!initialized) {
+            InitializeD3D();
+        }
+        const wchar_t* filename = L"C:\\Users\\TumorNecrosisFactor\\Desktop\\capture.png";
+        int result = CaptureWindow(GetForegroundWindow(), filename, d3dDevice, d3dContext);
+        return result;
+    } catch (...) {
+        return HandleException();
+    }
+#endif
 }
+
 #endif

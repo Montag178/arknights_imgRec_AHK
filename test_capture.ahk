@@ -1,6 +1,7 @@
 #Requires AutoHotkey v2.0
 #SingleInstance
 SetWorkingDir "C:\Users\TumorNecrosisFactor\dev\montag\arknights_imgRec_AHK\build"
+#DllLoad "C:\Users\TumorNecrosisFactor\dev\montag\arknights_imgRec_AHK\build\Screencap.dll" ; keep the d3dDevice/d3dContext to prevent unloading
 
 ^0::
 {
