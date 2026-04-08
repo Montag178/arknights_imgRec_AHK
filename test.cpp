@@ -1,1 +1,0 @@
-LoadLibrary(L"C:\Users\TumorNecrosisFactor\dev\montag\arknights_imgRec_AHK\build\Screencap.dll");

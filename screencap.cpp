@@ -12,12 +12,17 @@
 #include <d3d11.h>
 #include <d3d11_2.h>
 #include <dxgi1_2.h>
-#include <iostream>
+
 #include <chrono>
+#include <iostream>
+
+#include <opencv2/opencv.hpp>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 #include "direct3d11.interop.h"
+
+#include "utils.h"
 
 using namespace winrt::Windows::Graphics::Capture;
 using namespace winrt::Windows::Graphics::DirectX::Direct3D11;
@@ -65,7 +70,8 @@ int HandleException()
     }
 }
 
-int CaptureWindow(HWND hwnd, const wchar_t* filename, winrt::com_ptr<ID3D11Device>& d3dDevice, winrt::com_ptr<ID3D11DeviceContext>& d3dContext)
+
+int CaptureWindow(HWND hwnd, const char* filename, winrt::com_ptr<ID3D11Device>& d3dDevice, winrt::com_ptr<ID3D11DeviceContext>& d3dContext)
 {
 
     GraphicsCaptureItem item{ nullptr };
@@ -85,11 +91,13 @@ int CaptureWindow(HWND hwnd, const wchar_t* filename, winrt::com_ptr<ID3D11Devic
     winrt::com_ptr<::IInspectable> device;
     winrt::check_hresult(CreateDirect3D11DeviceFromDXGIDevice(dxgiDevice.get(), device.put()));
     auto size = item.Size();
+    int width = size.Width;
+    int height = size.Height;
     std::cout << "Window size: " << size.Width << "x" << size.Height << std::endl;
 
     auto pool = Direct3D11CaptureFramePool::Create(
         device.as<winrt::Windows::Graphics::DirectX::Direct3D11::IDirect3DDevice>(), 
-        winrt::Windows::Graphics::DirectX::DirectXPixelFormat::B8G8R8A8UIntNormalized,
+        winrt::Windows::Graphics::DirectX::DirectXPixelFormat::R8G8B8A8UIntNormalized,
         1,
         size);
     auto session = pool.CreateCaptureSession(item);
@@ -118,11 +126,11 @@ int CaptureWindow(HWND hwnd, const wchar_t* filename, winrt::com_ptr<ID3D11Devic
 
     winrt::com_ptr<ID3D11Texture2D> stagingTex;
     D3D11_TEXTURE2D_DESC desc = {};
-    desc.Width              = size.Width;
-    desc.Height             = size.Height;
+    desc.Width              = width;
+    desc.Height             = height;
     desc.MipLevels          = 1;
     desc.ArraySize          = 1;
-    desc.Format             = DXGI_FORMAT_B8G8R8A8_UNORM;
+    desc.Format             = DXGI_FORMAT_R8G8B8A8_UNORM;
     desc.SampleDesc.Count   = 1;
     desc.SampleDesc.Quality = 0;
     desc.Usage              = D3D11_USAGE_STAGING;
@@ -145,26 +153,23 @@ int CaptureWindow(HWND hwnd, const wchar_t* filename, winrt::com_ptr<ID3D11Devic
         return 3;
     }
     std::cout << "Map succeeded, RowPitch: " << mapped.RowPitch << std::endl;
-    // Check first pixel
-    if (mapped.pData) {
-        uint8_t* data = (uint8_t*)mapped.pData;
-        std::cout << "First pixel: R=" << (int)data[0] << " G=" << (int)data[1] << " B=" << (int)data[2] << " A=" << (int)data[3] << std::endl;
-    }
+    // // Check first pixel
+    // if (mapped.pData) {
+    //     uint8_t* data = (uint8_t*)mapped.pData;
+    //     std::cout << "First pixel: R=" << (int)data[0] << " G=" << (int)data[1] << " B=" << (int)data[2] << " A=" << (int)data[3] << std::endl;
+    // }
 
-    // DXGI_MAPPED_RECT rect;
-
-    int width = size.Width;
-    int height = size.Height;
 
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     std::cout << "time" << duration << "ms" << std::endl;
-    stbi_write_png("C:\\Users\\TumorNecrosisFactor\\Desktop\\capture.png", width, height, 4, mapped.pData, mapped.RowPitch);
+    stbi_write_png(filename, width, height, 4, mapped.pData, mapped.RowPitch);
 
     // frameSurface->Unmap();
     d3dContext->Unmap(stagingTex.get(), 0);
     return 0;
 }
+
 
 // DLL function here
 #ifdef BUILD_DLL
@@ -194,7 +199,10 @@ int main(){
         if (!initialized) {
             InitializeD3D();
         }
-        const wchar_t* filename = L"C:\\Users\\TumorNecrosisFactor\\Desktop\\capture.png";
+        auto working_dir = GetWorkingDir();
+        std::string fullpath = (working_dir / "img/capture.png").string();
+        const char* filename = fullpath.c_str();
+        std::cout << "Output file: " << filename << std::endl;
         int result = CaptureWindow(GetForegroundWindow(), filename, d3dDevice, d3dContext);
         return result;
     } catch (...) {

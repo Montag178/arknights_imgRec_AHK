@@ -1,17 +1,19 @@
 {
-  "version": 2,
+  "version": 3,
   "configurePresets": [
     {
       "name": "ninja-msvc",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build",
+      "toolchainFile": "C:/Tools/vcpkg/scripts/buildsystems/vcpkg.cmake",
       "architecture": {
         "value": "x64",
         "strategy": "external"
       },
       "cacheVariables": {
         "CMAKE_C_COMPILER": "cl.exe",
-        "CMAKE_CXX_COMPILER": "cl.exe"
+        "CMAKE_CXX_COMPILER": "cl.exe",
+        "CMAKE_TOOLCHAIN_FILE": "C:/Tools/vcpkg/scripts/buildsystems/vcpkg.cmake"
       }
     },
     {
