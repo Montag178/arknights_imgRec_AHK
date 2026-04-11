@@ -1,4 +1,7 @@
 build/
+old/
+img/
 .vscode/
 .env/
 *.code-workspace
+vc140.pdb
