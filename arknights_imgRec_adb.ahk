@@ -231,10 +231,10 @@ cancel()
 ; エミュレーターがアクティブな場合
 #HotIf WinActive("ahk_group Emulator")
 ; スキル使用
-RButton::skill()
+^1::skill()
 ; 撤退
-XButton1::retreat()
+^2::retreat()
 ; 選択キャンセル
 ; ^3::cancel()
-XButton2::ADBRelativeClick(cancelPos)
+^3::ADBRelativeClick(cancelPos)
 #HotIf
