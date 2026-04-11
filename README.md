@@ -23,7 +23,7 @@
   * ControlClick で操作します。  
   * LDPlayerなどのエミュレーターではControlClickが不安定な場合があります。
   * その場合は arknights\_imgRec\_adb.ahk を試してみてください。
-  * ※エミュレーターを起動してadb connectしてからスクリプトを起動してください
+    * ※エミュレーターを起動してadb connectしてからスクリプトを起動してください
 
 ## **使い方**
 
