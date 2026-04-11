@@ -22,11 +22,11 @@ jobs:
         run: |
           vcpkg install opencv:x64-windows
 
-      - name: Configure (CMake Preset: release)
+      - name: Configure (CMake Preset release)
         run: |
           cmake --preset release
 
-      - name: Build (CMake Preset: release)
+      - name: Build (CMake Preset release)
         run: |
           cmake --build --preset release
 
