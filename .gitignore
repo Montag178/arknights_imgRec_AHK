@@ -3,5 +3,5 @@ old/
 img/
 .vscode/
 .env/
+*.pdb
 *.code-workspace
-vc140.pdb
