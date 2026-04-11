@@ -17,11 +17,28 @@
       }
     },
     {
+      "name": "release",
+      "inherits": "ninja-msvc",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
       "name": "debug",
       "inherits": "ninja-msvc",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
       }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "debug"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release"
     }
   ]
 }

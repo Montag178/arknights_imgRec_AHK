@@ -5,12 +5,14 @@
 # include <opencv2/imgproc/imgproc.hpp>
 # include <opencv2/highgui/highgui.hpp>
 
+#include "utils.h"
+
 # define THRESHOLD 0.7
 # define FIND_TARGET_NUM 30
 using namespace cv;
 int main(int argc, char** argv){
   //元画像と検出画像の追加
-  auto working_dir = std::filesystem::current_path().parent_path();
+  auto working_dir = GetWorkingDir();
   cv::Mat src = cv::imread((working_dir / "img/capture.png").string(), 1);
   cv::Mat tmp = cv::imread((working_dir / "img/retreat.png").string(), 1);
 

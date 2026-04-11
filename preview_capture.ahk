@@ -19,10 +19,9 @@ SetWorkingDir "C:\Users\TumorNecrosisFactor\dev\montag\arknights_imgRec_AHK\buil
         "cdecl")
         ellapsedTime := A_TickCount - startTime
         if (result == 0) {
-            ToolTip "Success: " . ellapsedTime . " ms"
+            ToolTip "Success: " . ellapsedTime . " ms" . Format(" (x: {}, y: {})", x, y)
             x := NumGet(rectBuffer, 0, "Int")
             y := NumGet(rectBuffer, 4, "Int")
-            MouseClick "Left", x, y
         } else {
             MsgBox "Error code: " . Format("0x{:X}", result)
         }
@@ -46,10 +45,9 @@ SetWorkingDir "C:\Users\TumorNecrosisFactor\dev\montag\arknights_imgRec_AHK\buil
         "cdecl")
         ellapsedTime := A_TickCount - startTime
         if (result == 0) {
-            ToolTip "Success: " . ellapsedTime . " ms"
+            ToolTip "Success: " . ellapsedTime . " ms" . Format(" (x: {}, y: {})", x, y)
             x := NumGet(rectBuffer, 0, "Int")
             y := NumGet(rectBuffer, 4, "Int")
-            MouseClick "Left", x, y
         } else {
             MsgBox "Error code: " . Format("0x{:X}", result)
         }
