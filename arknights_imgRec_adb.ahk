@@ -120,8 +120,8 @@ _AdbWaitAndClose(sock) {
 
 ADBClick(absolutePos) {
     WinGetClientPos ,, &W, &H, "A"
-    x := Round(W / res[1] * absolutePos[1])
-    y := Round(H / res[2] * absolutePos[2])
+    x := Round(absolutePos[1] * res[1] / W)
+    y := Round(absolutePos[2] * res[2] / H)
     AdbTap(x, y)
 }
 
