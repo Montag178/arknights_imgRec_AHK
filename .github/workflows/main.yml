@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     tags:
-      - 'v*'   # v1.0 などのタグを push したときに実行
+      - 'v*'
 
 jobs:
   build:
@@ -14,20 +14,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install Ninja
+        uses: seanmiddleditch/gha-setup-ninja@v4
+
       - name: Install vcpkg
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgGitCommitId: bb4f525cbddd409bdc714ee3043b15ff7766af59
 
-      - name: Install OpenCV
+      - name: Configure CMake preset release
         run: |
-          vcpkg install opencv:x64-windows
+          cmake --preset release -DCMAKE_TOOLCHAIN_FILE="${env:VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
 
-      - name: Configure (CMake Preset release)
-        run: |
-          cmake --preset release
-
-      - name: Build (CMake Preset release)
+      - name: Build CMake preset release
         run: |
           cmake --build --preset release
 
@@ -35,4 +34,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Screencap-dll
-          path: build/Screencap.dll
+          path: bin/Screencap.dll
