@@ -32,7 +32,7 @@ jobs:
           cmake --build --preset release
 
       - name: Upload DLL artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Screencap-dll
           path: build/Screencap.dll
