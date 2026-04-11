@@ -17,7 +17,7 @@ jobs:
       - name: Install vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: master
+          vcpkgGitCommitId: bb4f525cbddd409bdc714ee3043b15ff7766af59
 
       - name: Install OpenCV
         run: |
