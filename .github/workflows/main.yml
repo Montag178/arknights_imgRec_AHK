@@ -14,6 +14,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+
       - name: Install Ninja
         uses: seanmiddleditch/gha-setup-ninja@v4
 
@@ -22,11 +25,16 @@ jobs:
         with:
           vcpkgGitCommitId: bb4f525cbddd409bdc714ee3043b15ff7766af59
 
-      - name: Configure CMake preset release
+      - name: Install OpenCV (static)
         run: |
-          cmake --preset release -DCMAKE_TOOLCHAIN_FILE="${env:VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+          vcpkg install opencv:x64-windows-static
 
-      - name: Build CMake preset release
+      - name: Configure CMake (Release)
+        run: |
+          cmake --preset release `
+            -DCMAKE_TOOLCHAIN_FILE="${env:VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+
+      - name: Build
         run: |
           cmake --build --preset release
 
@@ -35,3 +43,9 @@ jobs:
         with:
           name: Screencap-dll
           path: bin/Screencap.dll
+          
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: bin/Screencap.dll
