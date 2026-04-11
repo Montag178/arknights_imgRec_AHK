@@ -1,6 +1,5 @@
-build/
-old/
-img/
+bin/
+hide/
 .vscode/
 .env/
 *.pdb

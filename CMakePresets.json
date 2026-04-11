@@ -4,7 +4,7 @@
     {
       "name": "ninja-msvc",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build",
+      "binaryDir": "${sourceDir}/bin",
       "toolchainFile": "C:/Tools/vcpkg/scripts/buildsystems/vcpkg.cmake",
       "architecture": {
         "value": "x64",
