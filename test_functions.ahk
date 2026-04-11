@@ -1,8 +1,12 @@
 #Requires AutoHotkey v2.0
 #SingleInstance
 
-; このファイルはdllと同じフォルダに配置するか、SetWorkingDirでdllのあるフォルダを指定してから実行してください
-SetWorkingDir "C:\Users\TumorNecrosisFactor\dev\montag\arknights_imgRec_AHK\build"
+;=====================================================================================
+; 以下を環境に合わせて調整してください
+;=====================================================================================
+; このファイルはbinと同じフォルダに配置するか、以下のようにSetWorkingDirでbinフォルダを指定してから実行してください
+; SetWorkingDir "C:\your\path\to\bin"
+SetWorkingDir A_ScriptDir . "\bin"
 
 ; スクリーンキャプチャーのテスト, 成功するとキャプチャー画像が表示されます
 ; 表示されたウィンドウは何らかのキーを押して閉じることができます

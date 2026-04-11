@@ -2,18 +2,21 @@
 #SingleInstance Force
 DllCall("SetThreadDpiAwarenessContext", "ptr", -4, "ptr")
 ;=====================================================================================
-; 環境に合わせて調整してください
+; 以下を環境に合わせて調整してください
 ;=====================================================================================
-; このファイルはdllと同じフォルダに配置するか、SetWorkingDirでdllのあるフォルダを指定してから実行してください
-; SetWorkingDir A_ScriptDir
-SetWorkingDir "C:\Users\TumorNecrosisFactor\dev\montag\arknights_imgRec_AHK\build"
+; このファイルはbinと同じフォルダに配置するか、以下のようにSetWorkingDirでbinフォルダを指定してから実行してください
+; SetWorkingDir "C:\your\path\to\bin"
+SetWorkingDir A_ScriptDir . "\bin"
 GroupAdd "Emulator", "ahk_exe dnplayer.exe" ; LDPlayer
+; エミュレーターの画面解像度
+res := [1600, 900]
 ; オペレーターを選択してからスクリーンキャプチャを始めるまでの時間
 captureDelay := 150
 ; クリックが失敗したときにオペレーターの選択をキャンセルするまでの時間
 cancelDelay := 50
 ; キャンセルするためにクリックする相対座標
 cancelPos := [0.01, 0.1]
+
 
 ; ====================================================================================
 ; ライブラリ
@@ -114,13 +117,18 @@ _AdbWaitAndClose(sock) {
     AdbDisconnect(sock)
 }
 
-ADBRelativeClick(relativePos) {
+ADBClick(absolutePos) {
     WinGetClientPos ,, &W, &H, "A"
-    x := Round(W * relativePos[1])
-    y := Round(H * relativePos[2])
+    x := Round(W / res[1] * absolutePos[1])
+    y := Round(H / res[2] * absolutePos[2])
     AdbTap(x, y)
 }
 
+ADBRelativeClick(relativePos) {
+    x := Round(res[1] * relativePos[1])
+    y := Round(res[2] * relativePos[2])
+    AdbTap(x, y)
+}
 
 ;=====================================================================================
 ; ホットキー関数
@@ -143,7 +151,7 @@ skill()
             y1 := NumGet(coordsBuffer, 4, "Int")
             x2 := NumGet(coordsBuffer, 8, "Int")
             y2 := NumGet(coordsBuffer, 12, "Int")
-            ADBTap(x1, y1)
+            ADBClick([x1, y1])
             Sleep cancelDelay
             ADBRelativeClick(cancelPos)
         } else if (result == 1) {
@@ -175,7 +183,7 @@ retreat()
             y1 := NumGet(coordsBuffer, 4, "Int")
             x2 := NumGet(coordsBuffer, 8, "Int")
             y2 := NumGet(coordsBuffer, 12, "Int")
-            ADBTap(x1, y1)
+            ADBClick([x1, y1])
             Sleep cancelDelay
             ADBRelativeClick(cancelPos)
         } else if (result == 1) {
@@ -205,7 +213,7 @@ cancel()
             y1 := NumGet(coordsBuffer, 4, "Int")
             x2 := NumGet(coordsBuffer, 8, "Int")
             y2 := NumGet(coordsBuffer, 12, "Int")
-            ADBTap(x2, y2)
+            ADBClick([x2, y2])
         } else if (result == 1) {
             ADBRelativeClick(cancelPos) ; fallback to default position because no valid lines detected
         } else {
@@ -223,10 +231,10 @@ cancel()
 ; エミュレーターがアクティブな場合
 #HotIf WinActive("ahk_group Emulator")
 ; スキル使用
-^1::skill()
+RButton::skill()
 ; 撤退
-^2::retreat()
+XButton1::retreat()
 ; 選択キャンセル
 ; ^3::cancel()
-^3::ADBRelativeClick(cancelPos)
+XButton2::ADBRelativeClick(cancelPos)
 #HotIf

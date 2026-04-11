@@ -2,11 +2,11 @@
 #SingleInstance Force
 DllCall("SetThreadDpiAwarenessContext", "ptr", -4, "ptr")
 ;=====================================================================================
-; 環境に合わせて調整してください
+; 以下を環境に合わせて調整してください
 ;=====================================================================================
-; このファイルはdllと同じフォルダに配置するか、SetWorkingDirでdllのあるフォルダを指定してから実行してください
-; SetWorkingDir A_ScriptDir
-SetWorkingDir "C:\Users\TumorNecrosisFactor\dev\montag\arknights_imgRec_AHK\build"
+; このファイルはbinと同じフォルダに配置するか、以下のようにSetWorkingDirでbinフォルダを指定してから実行してください
+; SetWorkingDir "C:\your\path\to\bin"
+SetWorkingDir A_ScriptDir . "\bin"
 GroupAdd "Emulator", "ahk_exe crosvm.exe" ; GooglePlayGames
 ; オペレーターを選択してからスクリーンキャプチャを始めるまでの時間
 captureDelay := 150
