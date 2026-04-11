@@ -14,9 +14,10 @@ res := [1600, 900]
 captureDelay := 150
 ; クリックが失敗したときにオペレーターの選択をキャンセルするまでの時間
 cancelDelay := 50
-; キャンセルするためにクリックする相対座標
+; キャンセルするためにクリックする相対座標 (画像認識が失敗したとき用)
 cancelPos := [0.01, 0.1]
-
+; 例えばgoogle play gamesでサイドバーを展開した場合は以下の値にする必要があります
+; cancelPos := [0.05, 0.1]
 
 ; ====================================================================================
 ; ライブラリ
@@ -153,7 +154,8 @@ skill()
             y2 := NumGet(coordsBuffer, 12, "Int")
             ADBClick([x1, y1])
             Sleep cancelDelay
-            ADBRelativeClick(cancelPos)
+            ; ADBRelativeClick(cancelPos)
+            ADBClick([x2, y2])
         } else if (result == 1) {
             ADBRelativeClick(cancelPos)
         } else {
@@ -185,7 +187,8 @@ retreat()
             y2 := NumGet(coordsBuffer, 12, "Int")
             ADBClick([x1, y1])
             Sleep cancelDelay
-            ADBRelativeClick(cancelPos)
+            ; ADBRelativeClick(cancelPos)
+            ADBClick([x2, y2])
         } else if (result == 1) {
             ADBRelativeClick(cancelPos)
         } else {
@@ -235,6 +238,6 @@ cancel()
 ; 撤退
 ^2::retreat()
 ; 選択キャンセル
-; ^3::cancel()
-^3::ADBRelativeClick(cancelPos)
+; ^3::ADBRelativeClick(cancelPos)
+^3::cancel()
 #HotIf

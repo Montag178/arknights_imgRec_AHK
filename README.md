@@ -21,8 +21,7 @@
 
 * **入力**:  
   * ControlClick で操作します。  
-  * LDPlayerなどのエミュレーターではControlClickが不安定な場合があります。
-  * その場合は arknights\_imgRec\_adb.ahk を試してみてください。
+  * LDPlayerなどのエミュレーターではControlClickが不安定な場合があります。その場合は arknights\_imgRec\_adb.ahk を試してみてください。
 
 ## **使い方**
 
@@ -30,65 +29,67 @@
 2. **設定**:  
    * 使うエミュレータのファイル名（.exe）をスクリプトの中で指定してください。  
    * ahkスクリプトを bin フォルダと違う場所に置く場合は、スクリプトの中の SetWorkingDir でパスを指定する必要があります。  
-   *  arknights\_imgRec\_adb.ahk を使う場合はエミュレーターの解像度を設定してください
+   * arknights\_imgRec\_adb.ahk を使う場合はエミュレーターの解像度を設定してください。  
 3. **起動**: ahkファイルを実行します。  
-   * ※**AutoHotkey v2 (64-bit)** での起動が必須です。32-bit版では動きません。
-   * ※ arknights\_imgRec\_adb.ahk を使う場合はエミュレーターを起動してadb connectしてからスクリプトを起動してください
+   * ※**AutoHotkey v2 (64-bit)** での起動が必須です。32-bit版では動きません。  
+   * ※arknights\_imgRec\_adb.ahk を使う場合はエミュレーターを起動してadb connectしてからスクリプトを起動してください。
 
-デフォルトのキーバインドは以下です
+デフォルトのキーバインドは以下です。
 
 | キー操作 | 動作 |
 | :---- | :---- |
-| **Ctrl + 1** | スキル発動 |
-| **Ctrl + 2** | 撤退 |
-| **Ctrl + 3** | 選択キャンセル |
+| **Ctrl \+ 1** | スキル発動 |
+| **Ctrl \+ 2** | 撤退 |
+| **Ctrl \+ 3** | 選択キャンセル |
 
 ## **うまく動かないときは**
-*  test_functions.ahkで確認してみてください  
-*  解像度が(960x540), (1280x720), (1920x1080)で動作確認しました  
-*  ahkスクリプトの中のcaptureDelayやcancelDelayを調整してみてください  
-*  画像処理部分の値を調整をする場合は自力でビルドする必要があります。調整候補の値は以下です  
-  * cv::Scalar lower の値(960x540で240, 1280x720で250, 1920x1080以上で255が良さそうでした)  
-  * roiの大きさ  
-  * HoughLinesPの第6, 7引数  (効果大)
-  * angleの条件式  
+
+* test\_functions.ahk で動作を確認してみてください。  
+* 動作確認済みの環境：  
+  * 解像度: 960x540, 1280x720, 1920x1080  
+  * ゲーム内設定：UI調整 0  
+* ahkスクリプト内の captureDelay や cancelDelay を調整してみてください。  
+* 画像処理の閾値を調整する場合、自力でビルドする必要があります。調整候補：  
+  * cv::Scalar lower の値（環境に合わせて240〜255付近）  
+  * ROI（関心領域）の大きさ  
+  * HoughLinesP の第6, 7引数（検出しやすさに大きく影響します）
+
 ## **ビルド方法**
 
 ### **必要なもの**
 
-* Visual Studio 2022 (Build Tools または Community)  
+* Visual Studio 2026 (Build Tools または Community)  
 * Ninja build  
 * VSCode (拡張機能: C/C++, CMake Tools, AHK++)  
-* **OpenCV**: vcpkg を使用するか、[公式サイト](https://www.google.com/search?q=https://opencv.org/releases/)から取得してください。  
-* **ヘッダーファイル**: direct3d11.interop.h が必要です。
-
-### **フォルダ構成（ビルド時）**
-
-プロジェクトのルートディレクトリに以下のフォルダを作成して配置してください。
-
-* third\_party/direct3d11.interop.h がプロジェクトフォルダに配置されている必要があります。
-* OpenCVを自分で用意する場合、CMakeが検出できるパスに配置してください（vcpkg推奨）。
+* **OpenCV (必須)**: vcpkg でインストールするか、公式サイトからダウンロードしたバイナリが必要です。
 
 ### **ビルド環境の構築**
 
-1. Visual Studio インストーラーで「C++ によるデスクトップ開発」を選択し、以下が含まれていることを確認します。  
+1. **Visual Studioの設定**:  
+   インストーラーで「C++ によるデスクトップ開発」を選択し、以下をインストールします。  
    * Windows 用 C++ CMake ツール  
    * Windows SDK  
    * x64/x86 用 MSVC ビルドツール  
-2. **x64 Native Tools Command Prompt for VS 2026** を開きます。  
-3. コマンドプロンプトから code . と入力してプロジェクトを開きます。  
-   * DLLを **x64** でビルドするために必ずこの手順を踏んでください。  
-vcpkgの導入の参考はこちら  
-https://learn.microsoft.com/ja-jp/vcpkg/get_started/get-started-vscode?pivots=shell-powershell
+2. **Ninjaのインストール**:  
+   WinGet などで Ninja build をインストールします。  
+3. **OpenCVの導入 (vcpkgを使用する場合)**:  
+   * vcpkg を C:/Tools/ などにインストールします。  
+   * ユーザー環境変数に VCPKG\_ROOT を追加し、PATH にも追記します。  
+   * PowerShell から vcpkg install opencv:x64-windows-static でopencvをインストールします  
+4. **プロジェクトの展開**:  
+   * **x64 Native Tools Command Prompt for VS 2026** を開き、code と入力して VSCode を開きます。  
+   * プロジェクトのフォルダを開きます。  
+   * ※DLLを **x64** でビルドするために、毎回必ずこの手順（x64 Native Tools Command Prompt経由）で起動してください。  
+5. **CMakeの設定**:  
+   * CMakePresets.json の toolchainFile および CMAKE\_TOOLCHAIN\_FILE に、自身の環境の vcpkg.cmake のパスが正しく記述されているか確認してください。
 
 ### **ビルドの手順**
 
-1. VSCodeでプロジェクトフォルダを開きます。  
-2. Ctrl \+ Shift \+ P で CMake: Configure を実行し、キットに ninja-msvc 等を選択します。  
-3. Ctrl \+ Shift \+ P で CMake: Build を実行します。  
-4. build フォルダの中に Screencap.dll が生成されます。
+1. Ctrl \+ Shift \+ P \-\> CMake: Configure を実行し、release を選択します。  
+2. Ctrl \+ Shift \+ P \-\> CMake: Build を実行します。  
+3. プロジェクト直下の bin フォルダの中に Screencap.dll が生成されます。
 
 ## **ライセンス**
 
 **MITライセンス**  
-OpenCV以外はWindows標準のライブラリを使っています。自由に改変および配布していたいただけます。詳細はLICENSE.txtを確認してください。
+OpenCV以外はWindows標準のライブラリを使っています。詳細はLICENSE.txtを確認してください。

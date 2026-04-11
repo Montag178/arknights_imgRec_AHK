@@ -12,13 +12,14 @@ GroupAdd "Emulator", "ahk_exe crosvm.exe" ; GooglePlayGames
 captureDelay := 150
 ; クリックが失敗したときにオペレーターの選択をキャンセルするまでの時間
 cancelDelay := 50
-; キャンセルするためにクリックする相対座標
+; キャンセルするためにクリックする相対座標 (画像認識が失敗したとき用)
 cancelPos := [0.01, 0.1]
+; 例えばgoogle play gamesでサイドバーを展開した場合は以下の値にする必要があります
+; cancelPos := [0.05, 0.1]
 
 ; ====================================================================================
 ; ライブラリ
 ; ====================================================================================
-; [横位置の比率, 縦位置の比率]で指定した位置をクリックする
 RelativeClick(relativePos) {
 	WinGetClientPos ,, &W, &H, "A"
 	x := Round(W * relativePos[1])
@@ -49,8 +50,8 @@ skill()
             y2 := NumGet(coordsBuffer, 12, "Int")
             ControlClick Format("x{} y{}", x1, y1), "A"
             Sleep cancelDelay
-            RelativeClick(cancelPos) ; fallback to default position if the first click failed
-            ; ControlClick Format("x{} y{}", x2, y2), "A"
+            ; RelativeClick(cancelPos) ; fallback to default position if the first click failed
+            ControlClick Format("x{} y{}", x2, y2), "A"
         } else if (result == 1) {
             RelativeClick(cancelPos) ; fallback to default position because no valid lines detected
         } else {
@@ -82,7 +83,8 @@ retreat()
             y2 := NumGet(coordsBuffer, 12, "Int")
             ControlClick Format("x{} y{}", x1, y1), "A"
             Sleep cancelDelay
-            RelativeClick(cancelPos) ; fallback to default position if the first click failed
+            ; RelativeClick(cancelPos) ; fallback to default position if the first click failed
+            ControlClick Format("x{} y{}", x2, y2), "A"
         } else if (result == 1) {
             RelativeClick(cancelPos) ; fallback to default position because no valid lines detected
         } else {
@@ -132,6 +134,6 @@ cancel()
 ; 撤退
 ^2::retreat()
 ; 選択キャンセル
-; ^3::cancel()
-^3::RelativeClick(cancelPos)
+; ^3::RelativeClick(cancelPos)
+^3::cancel()
 #HotIf
