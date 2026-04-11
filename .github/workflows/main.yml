@@ -1,0 +1,37 @@
+name: Build Screencap DLL
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Ninja
+        uses: seanmiddleditch/gha-setup-ninja@v4
+
+      - name: Install vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: bb4f525cbddd409bdc714ee3043b15ff7766af59
+
+      - name: Configure CMake preset release
+        run: |
+          cmake --preset release -DCMAKE_TOOLCHAIN_FILE="${env:VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+
+      - name: Build CMake preset release
+        run: |
+          cmake --build --preset release
+
+      - name: Upload DLL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Screencap-dll
+          path: bin/Screencap.dll
