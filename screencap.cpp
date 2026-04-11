@@ -25,22 +25,20 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID reserved)
 
 #include <chrono>
 #include <iostream>
+#include <fstream>
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-# include <opencv2/highgui/highgui.hpp>
+#include <opencv2/highgui/highgui.hpp>
 
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image_write.h"
 #include "direct3d11.interop.h"
 
 #include "utils.h"
+#include "MatchingMethods.h"
 
 using namespace winrt::Windows::Graphics::Capture;
 using namespace winrt::Windows::Graphics::DirectX::Direct3D11;
 
-# define THRESHOLD 0.7
-# define FIND_TARGET_NUM 30
 // these variables keep alive until this dll is unloaded, which helps shorten execution time
 static bool initialized = false;
 static winrt::com_ptr<ID3D11Device> d3dDevice;
@@ -84,172 +82,177 @@ int HandleException()
     }
 }
 
-
-int CaptureWindow(HWND hwnd, winrt::com_ptr<ID3D11Device>& d3dDevice, winrt::com_ptr<ID3D11DeviceContext>& d3dContext, int* x1, int* y1, int* x2, int* y2, int mode)
+// Data structure to pass GPU texture and mapped buffer between capture and processing functions
+struct CaptureData
 {
+    winrt::com_ptr<ID3D11Texture2D> stagingTex;  // GPU staging texture (keeps texture alive)
+    D3D11_MAPPED_SUBRESOURCE mapped;              // CPU-accessible mapped buffer
+    int width;                                    // Frame width in pixels
+    int height;                                   // Frame height in pixels
+    int status;                                   // 0 = success, <0 = error code
+};
 
-    GraphicsCaptureItem item{ nullptr };
-
-    auto activationFactory = winrt::get_activation_factory<GraphicsCaptureItem>();
-    auto interop = activationFactory.as<IGraphicsCaptureItemInterop>();
-
-    winrt::check_hresult(
-        interop->CreateForWindow(
-            hwnd,
-            winrt::guid_of<GraphicsCaptureItem>(),
-            reinterpret_cast<void**>(winrt::put_abi(item))));
-
-    // auto item = CreateCaptureItemForWindow(hwnd);
-
-    auto dxgiDevice = d3dDevice.as<IDXGIDevice>();
-    winrt::com_ptr<::IInspectable> device;
-    winrt::check_hresult(CreateDirect3D11DeviceFromDXGIDevice(dxgiDevice.get(), device.put()));
-    auto size = item.Size();
-    int width = size.Width;
-    int height = size.Height;
-    std::cout << "Window size: " << size.Width << "x" << size.Height << std::endl;
-
-    auto pool = Direct3D11CaptureFramePool::Create(
-        device.as<winrt::Windows::Graphics::DirectX::Direct3D11::IDirect3DDevice>(), 
-        winrt::Windows::Graphics::DirectX::DirectXPixelFormat::B8G8R8A8UIntNormalized,
-        1,
-        size);
-    auto session = pool.CreateCaptureSession(item);
-    if (!session.IsSupported()){
-        std::cout << "session is not supported" << std::endl;
-        return -3;
-    }
-    session.StartCapture();
+// Capture window frame and prepare staging texture with mapped buffer
+// Returns CaptureData with status code (0 = success, <0 = error)
+CaptureData CaptureWindowFrame(HWND hwnd, winrt::com_ptr<ID3D11Device>& d3dDevice, 
+                                winrt::com_ptr<ID3D11DeviceContext>& d3dContext)
+{
+    CaptureData result = {};
+    result.status = 0;
     
-    winrt::Windows::Graphics::Capture::Direct3D11CaptureFrame frame{ nullptr };
-    for (int i=0; i<10; ++i) { 
-        frame = pool.TryGetNextFrame();
-        if (frame) {
-            std::cout << "frame captured" << std::endl;
-            break; 
+    try {
+        GraphicsCaptureItem item{ nullptr };
+
+        auto activationFactory = winrt::get_activation_factory<GraphicsCaptureItem>();
+        auto interop = activationFactory.as<IGraphicsCaptureItemInterop>();
+
+        winrt::check_hresult(
+            interop->CreateForWindow(
+                hwnd,
+                winrt::guid_of<GraphicsCaptureItem>(),
+                reinterpret_cast<void**>(winrt::put_abi(item))));
+
+        auto dxgiDevice = d3dDevice.as<IDXGIDevice>();
+        winrt::com_ptr<::IInspectable> device;
+        winrt::check_hresult(CreateDirect3D11DeviceFromDXGIDevice(dxgiDevice.get(), device.put()));
+        auto size = item.Size();
+        result.width = size.Width;
+        result.height = size.Height;
+        std::cout << "Window size: " << size.Width << "x" << size.Height << std::endl;
+
+        auto pool = Direct3D11CaptureFramePool::Create(
+            device.as<winrt::Windows::Graphics::DirectX::Direct3D11::IDirect3DDevice>(), 
+            winrt::Windows::Graphics::DirectX::DirectXPixelFormat::B8G8R8A8UIntNormalized,
+            1,
+            size);
+        auto session = pool.CreateCaptureSession(item);
+        if (!session.IsSupported()){
+            std::cout << "session is not supported" << std::endl;
+            result.status = -3;
+            return result;
         }
-        Sleep(10);
-    }
-    if (!frame) return 2;
-
-
-    
-    auto frameTex = GetDXGIInterfaceFromObject<ID3D11Texture2D>(frame.Surface());
-
-    winrt::com_ptr<ID3D11Texture2D> stagingTex;
-    D3D11_TEXTURE2D_DESC desc = {};
-    desc.Width              = width;
-    desc.Height             = height;
-    desc.MipLevels          = 1;
-    desc.ArraySize          = 1;
-    desc.Format             = DXGI_FORMAT_B8G8R8A8_UNORM;
-    desc.SampleDesc.Count   = 1;
-    desc.SampleDesc.Quality = 0;
-    desc.Usage              = D3D11_USAGE_STAGING;
-    desc.BindFlags          = 0;                    // BindFlags.None
-    desc.CPUAccessFlags     = D3D11_CPU_ACCESS_READ; // CpuAccessFlags.Read
-    desc.MiscFlags          = 0;
-    winrt::check_hresult(d3dDevice->CreateTexture2D(&desc, nullptr, stagingTex.put()));
-    d3dContext->CopyResource(stagingTex.get(), frameTex.get());
-    // std::cout << "CopyResource completed" << std::endl;
-    D3D11_MAPPED_SUBRESOURCE mapped = {};
-    HRESULT hr = d3dContext->Map(
-        stagingTex.get(),
-        0,
-        D3D11_MAP_READ,
-        0,
-        &mapped
-    );
-    if (FAILED(hr)) {
-        std::cout << "Map failed with HRESULT: " << std::hex << hr << std::endl;
-        return -4;
-    }
-    // std::cout << "Map succeeded, RowPitch: " << mapped.RowPitch << std::endl;
-
-
-    *x1 = 0, *y1 = 0, *x2 = 0, *y2 = 0;
-    // std::cout << "captured image size: " << width << "x" << height << std::endl;
-    cv::Mat image(height, width, CV_8UC4, mapped.pData, mapped.RowPitch);
-    // cv::Mat gray_img, binary_img;
-    // cv::cvtColor(image, gray_img, cv::COLOR_BGRA2GRAY);
-    // cv::threshold(gray_img, binary_img, 254, 255, cv::THRESH_BINARY);
-    // 1~2ms faster 
-    cv::Mat binary_img;
-    cv::Scalar lower(240, 240, 240, 0);   
-    cv::Scalar upper(255, 255, 255, 255); 
-    cv::inRange(image, lower, upper, binary_img);
-
-    cv::Rect roi_rect(0.3 * width, 0.13 * height, 0.55 * width, 0.685 * height); 
-    cv::Mat roi = binary_img(roi_rect);
-    // cv::Mat black_img = cv::Mat::zeros(roi.size(), CV_8UC1); 
-
-    std::vector<cv::Vec4i> lines;
-    cv::HoughLinesP(roi, lines, 1, CV_PI / 180, 100, 0.104167 * width, 0.01 * width);
-    int min_x = roi.cols, min_y = roi.rows, max_x = 0, max_y = 0;
-    cv::Point ptLeft = {0, 0}, ptTop = {0, 0}, ptRight = {0, 0}, ptBottom = {0, 0};
-
-    // std::cout << "ROI size: " << roi.cols << "x" << roi.rows << std::endl;
-    // std::cout << "Detected lines: " << lines.size() << std::endl;
-    for (size_t i = 0; i < lines.size(); i++) {
-        cv::Vec4i l = lines[i];
+        session.StartCapture();
         
-        double angle = (std::abs)(std::atan2(l[3] - l[1], l[2] - l[0]) * 180.0 / CV_PI);
-        if ((angle > 25 && angle < 45)) {
-            cv::Point p1(l[0], l[1]), p2(l[2], l[3]);
-            std::vector<cv::Point> points = {p1, p2};
-            for (const auto& pt : points) {
-                if (pt.x < min_x) { min_x = pt.x; ptLeft = pt; }
-                if (pt.x > max_x) { max_x = pt.x; ptRight = pt; }
-                if (pt.y < min_y) { min_y = pt.y; ptTop = pt; }
-                if (pt.y > max_y) { max_y = pt.y; ptBottom = pt; }
+        winrt::Windows::Graphics::Capture::Direct3D11CaptureFrame frame{ nullptr };
+        for (int i=0; i<10; ++i) { 
+            frame = pool.TryGetNextFrame();
+            if (frame) {
+                std::cout << "frame captured" << std::endl;
+                break; 
             }
+            Sleep(10);
+        }
+        if (!frame) {
+            result.status = 2;
+            return result;
+        }
 
-            std::cout << "Line " << i << ": (" << l[0] << ", " << l[1] << ") to (" << l[2] << ", " << l[3] << "), angle: " << angle << std::endl;
-            // cv::line(black_img, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), cv::Scalar(255), 2);
+        auto frameTex = GetDXGIInterfaceFromObject<ID3D11Texture2D>(frame.Surface());
+
+        D3D11_TEXTURE2D_DESC desc = {};
+        desc.Width              = result.width;
+        desc.Height             = result.height;
+        desc.MipLevels          = 1;
+        desc.ArraySize          = 1;
+        desc.Format             = DXGI_FORMAT_B8G8R8A8_UNORM;
+        desc.SampleDesc.Count   = 1;
+        desc.SampleDesc.Quality = 0;
+        desc.Usage              = D3D11_USAGE_STAGING;
+        desc.BindFlags          = 0;
+        desc.CPUAccessFlags     = D3D11_CPU_ACCESS_READ;
+        desc.MiscFlags          = 0;
+        winrt::check_hresult(d3dDevice->CreateTexture2D(&desc, nullptr, result.stagingTex.put()));
+        d3dContext->CopyResource(result.stagingTex.get(), frameTex.get());
+
+        HRESULT hr = d3dContext->Map(
+            result.stagingTex.get(),
+            0,
+            D3D11_MAP_READ,
+            0,
+            &result.mapped
+        );
+        if (FAILED(hr)) {
+            std::cout << "Map failed with HRESULT: " << std::hex << hr << std::endl;
+            result.status = -4;
+            return result;
         }
     }
-    // cv::imshow("Detected Lines", black_img);
-    // cv::imshow("ROI", roi);
-    // cv::waitKey(0);
-    // auto working_dir = GetWorkingDir();
-    // cv::imwrite((working_dir / "img/lines.png").string(), black_img);
-    if (ptTop.x - ptLeft.x < 0.1 * width || ptRight.x - ptBottom.x < 0.1 * width) {
-        std::cout << "could not find two distinct lines" << std::endl;
-        d3dContext->Unmap(stagingTex.get(), 0);
-        return 1;
-    } else {
-        if (ptLeft.x == 0 || ptTop.y == 0 || ptRight.x == roi.cols || ptBottom.y == roi.rows) {
-            std::cout << "maybe ROI is too small, but continue processing" << std::endl;
-        } 
-        cv::Point2f button1 = (cv::Point2f(ptLeft) + cv::Point2f(ptTop)) * 0.5f;
-        cv::Point2f button2 = (cv::Point2f(ptBottom) + cv::Point2f(ptRight)) * 0.5f;
-        cv::Point2f button3 = cv::Point2f(ptTop);
-        cv::Point finalButton1(button1.x + roi_rect.x, button1.y + roi_rect.y);
-        cv::Point finalButton2(button2.x + roi_rect.x, button2.y + roi_rect.y);
-        cv::Point finalButton3(button3.x, button3.y + 0.02 * height);
-        // std::cout << "ptLeft: (" << ptLeft.x << ", " << ptLeft.y << "), ptTop: (" << ptTop.x << ", " << ptTop.y << "), ptRight: (" << ptRight.x << ", " << ptRight.y << "), ptBottom: (" << ptBottom.x << ", " << ptBottom.y << ")" << std::endl;
-        // std::cout << "button1: (" << button1.x << ", " << button1.y << "), button2: (" << button2.x << ", " << button2.y << "), button3: (" << button3.x << ", " << button3.y << ")" << std::endl;
-        // std::cout << "roi_rect: (" << roi_rect.x << ", " << roi_rect.y << ", " << roi_rect.width << ", " << roi_rect.height << ")" << std::endl;
-        // cv::circle(black_img, button1, 10, cv::Scalar(255, 255, 255, 255), 3);
-        // cv::circle(black_img, button2, 10, cv::Scalar(140, 140, 140, 255), 3);
-        // cv::imshow("Detected Buttons", black_img);
-        // cv::waitKey(0);
+    catch (...) {
+        result.status = -1;
+    }
+    
+    return result;
+}
 
+// Process captured frame: delegates to line detection algorithm
+// Returns button coordinates based on mode selection
+// Status: 0 = success, 1 = warning (insufficient lines), <0 = error
+int ProcessCapturedFrame(CaptureData& captureData, int mode, 
+                         int* x1, int* y1, int* x2, int* y2)
+{
+    try {
+        int width = captureData.width;
+        int height = captureData.height;
+
+        *x1 = 0, *y1 = 0, *x2 = 0, *y2 = 0;
+        
+        // Use mapped buffer directly without copying
+        cv::Mat image(height, width, CV_8UC4, captureData.mapped.pData, captureData.mapped.RowPitch);
+        
+        // Process using line detection method
+        ProcessResult result = ProcessViaLineDetection(image, width, height, false);
+        
+        // Log debug information
+        if (!result.debug_info.empty()) {
+            std::cout << result.debug_info;
+        }
+        
+        // Handle different status codes
+        if (result.status < 0) {
+            // Error occurred
+            return result.status;
+        } else if (result.status > 0) {
+            // Warning: unable to find lines
+            return result.status;
+        }
+        
+        // Success: assign button coordinates based on mode
         if (mode == 1) {
-            *x1 = finalButton1.x;
-            *y1 = finalButton1.y;
-            std::cout << "Mode 1: Returning button 1 coordinates: (" << finalButton1.x << ", " << finalButton1.y << ")" << std::endl;
+            *x1 = (int)result.button1.x;
+            *y1 = (int)result.button1.y;
+            std::cout << "Mode 1: Returning button 1 coordinates: (" << *x1 << ", " << *y1 << ")" << std::endl;
         } else {
-            *x1 = finalButton2.x;
-            *y1 = finalButton2.y;
-            std::cout << "Mode 2: Returning button 2 coordinates: (" << finalButton2.x << ", " << finalButton2.y << ")" << std::endl;
+            *x1 = (int)result.button2.x;
+            *y1 = (int)result.button2.y;
+            std::cout << "Mode 2: Returning button 2 coordinates: (" << *x1 << ", " << *y1 << ")" << std::endl;
         }
-        *x2 = finalButton3.x;
-        *y2 = finalButton3.y;
+        *x2 = (int)result.button3.x;
+        *y2 = (int)result.button3.y;
+        
+        return 0;
     }
+    catch (...) {
+        return -1;
+    }
+}
 
-    d3dContext->Unmap(stagingTex.get(), 0);
-    return 0;
+int GetButtonCoordinates(HWND hwnd, winrt::com_ptr<ID3D11Device>& d3dDevice, winrt::com_ptr<ID3D11DeviceContext>& d3dContext, int* x1, int* y1, int* x2, int* y2, int mode)
+{
+    // Capture window frame and prepare GPU staging texture with mapped buffer
+    CaptureData captureData = CaptureWindowFrame(hwnd, d3dDevice, d3dContext);
+    
+    // Check if capture succeeded
+    if (captureData.status != 0) {
+        return captureData.status;
+    }
+    
+    // Process the captured frame using the staging texture directly (no copying)
+    int processResult = ProcessCapturedFrame(captureData, mode, x1, y1, x2, y2);
+    
+    // Unmap the staging texture to release GPU resource
+    d3dContext->Unmap(captureData.stagingTex.get(), 0);
+    
+    return processResult;
 }
 
 
@@ -261,8 +264,114 @@ int RunProcess(int* x1, int* y1, int* x2, int* y2, int mode) {
         if (!initialized) {
             InitializeD3D();
         }
-        int result = CaptureWindow(GetForegroundWindow(), d3dDevice, d3dContext, x1, y1, x2, y2, mode);
+        int result = GetButtonCoordinates(GetForegroundWindow(), d3dDevice, d3dContext, x1, y1, x2, y2, mode);
         return result;
+    } catch (...) {
+        return HandleException();
+    }
+}
+extern "C" __declspec(dllexport)
+int CaptureTest() {
+    try {
+        if (!initialized) {
+            InitializeD3D();
+        }
+        // Capture window frame and prepare GPU staging texture with mapped buffer
+        CaptureData captureData = CaptureWindowFrame(GetForegroundWindow(), d3dDevice, d3dContext);
+        
+        // Check if capture succeeded
+        if (captureData.status != 0) {
+            std::cout << "Error code: " << captureData.status << std::endl;
+            d3dContext->Unmap(captureData.stagingTex.get(), 0);
+            return captureData.status;
+        }
+
+        cv::Mat image(captureData.height, captureData.width, CV_8UC4, captureData.mapped.pData, captureData.mapped.RowPitch);
+        cv::imshow("Captured Image (Raw)", image);
+        cv::waitKey(0);
+        cv::destroyAllWindows();
+        
+        // Unmap the staging texture to release GPU resource
+        d3dContext->Unmap(captureData.stagingTex.get(), 0);
+        return 0;
+    } catch (...) {
+        return HandleException();
+    }
+}
+
+extern "C" __declspec(dllexport)
+int ShowProcessedImage() {
+    try {
+        if (!initialized) {
+            InitializeD3D();
+        }
+        // Capture window frame and prepare GPU staging texture with mapped buffer
+        CaptureData captureData = CaptureWindowFrame(GetForegroundWindow(), d3dDevice, d3dContext);
+        
+        // Check if capture succeeded
+        if (captureData.status != 0) {
+            std::cout << "Error code: " << captureData.status << std::endl;
+            d3dContext->Unmap(captureData.stagingTex.get(), 0);
+            return captureData.status;
+        }
+
+        int width = captureData.width;
+        int height = captureData.height;
+
+        // Create cv::Mat from captured frame data
+        cv::Mat image(height, width, CV_8UC4, captureData.mapped.pData, captureData.mapped.RowPitch);
+        
+        // Process the captured image using line detection method
+        bool is_test_mode = true; // prepare black image for visualization in line detection method
+        ProcessResult result = ProcessViaLineDetection(image, width, height, is_test_mode);
+        
+        // Log debug information
+        std::cout << result.debug_info;
+        
+        // Write debug info to file for AHK to read
+        std::ofstream debug_file("debug_info.txt");
+        if (debug_file.is_open()) {
+            debug_file << result.debug_info;
+            debug_file.close();
+        }
+        
+        if (result.status >= 0) {
+            // Display processed image with detected buttons
+            cv::Mat display_image = image.clone();  // Clone for display overlay
+            cv::Rect roi_rect(0.3 * width, 0.13 * height, 0.55 * width, 0.685 * height);
+            
+            // Draw ROI rectangle on display
+            cv::rectangle(display_image, roi_rect, cv::Scalar(0, 255, 0, 255), 2);
+            
+            // Draw detected button positions on display image
+            if (result.status == 0) {
+                cv::circle(display_image, cv::Point(result.button1.x, result.button1.y), 15, cv::Scalar(0, 255, 0, 255), 3);
+                cv::putText(display_image, "B1", cv::Point(result.button1.x + 20, result.button1.y), 
+                           cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 255, 0, 255), 2);
+                
+                cv::circle(display_image, cv::Point(result.button2.x, result.button2.y), 15, cv::Scalar(0, 0, 255, 255), 3);
+                cv::putText(display_image, "B2", cv::Point(result.button2.x + 20, result.button2.y), 
+                           cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 0, 255, 255), 2);
+                
+                cv::circle(display_image, cv::Point(result.button3.x, result.button3.y), 15, cv::Scalar(255, 0, 0, 255), 3);
+                cv::putText(display_image, "B3", cv::Point(result.button3.x + 20, result.button3.y), 
+                           cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(255, 0, 0, 255), 2);
+                
+                std::cout << "Button coordinates:\n";
+                std::cout << "  B1: (" << (int)result.button1.x << ", " << (int)result.button1.y << ")\n";
+                std::cout << "  B2: (" << (int)result.button2.x << ", " << (int)result.button2.y << ")\n";
+                std::cout << "  B3: (" << (int)result.button3.x << ", " << (int)result.button3.y << ")\n";
+            }
+            
+            cv::imshow("Processed Image (with Button Locations)", display_image);
+            cv::imshow("Line Detection Result", result.processed_image);
+            cv::waitKey(0);
+            cv::destroyAllWindows();
+        }
+        
+        // Unmap the staging texture to release GPU resource
+        d3dContext->Unmap(captureData.stagingTex.get(), 0);
+        return result.status == 0 ? 0 : result.status;
     } catch (...) {
         return HandleException();
     }
@@ -280,7 +389,7 @@ int main(){
         if (!initialized) {
             InitializeD3D();
         }
-        int result = CaptureWindow(GetForegroundWindow(), d3dDevice, d3dContext);
+        int result = GetButtonCoordinates(GetForegroundWindow(), d3dDevice, d3dContext, &x1, &y1, &x2, &y2, 1);
         return result;
     } catch (...) {
         return HandleException();

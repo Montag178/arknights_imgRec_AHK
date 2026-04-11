@@ -1,0 +1,5 @@
+third_party/direct3d11.interop.h
+- Source: Microsoft WinRT Direct3D interop example
+- Used for CreateDirect3D11DeviceFromDXGIDevice / CreateDirect3D11SurfaceFromDXGISurface
+- Included for build convenience; no modification made
+- License: Microsoft sample code license may apply (no explicit header found in this file)
