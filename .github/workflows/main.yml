@@ -1,6 +1,7 @@
 name: Build Screencap DLL
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v*'   # v1.0 などのタグを push したときに実行
