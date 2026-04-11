@@ -31,7 +31,7 @@
    * ahkスクリプトを bin フォルダと違う場所に置く場合は、スクリプトの中の SetWorkingDir でパスを指定する必要があります。  
 3. **起動**: ahkファイルを実行します。  
    * ※**AutoHotkey v2 (64-bit)** での起動が必須です。32-bit版では動きません。
-
+デフォルトのキーバインドは以下です
 | キー操作 | 動作 |
 | :---- | :---- |
 | **Ctrl \+ 1** | スキル発動 |
@@ -52,7 +52,7 @@
 
 プロジェクトのルートディレクトリに以下のフォルダを作成して配置してください。
 
-* third\_party/: direct3d11.interop.h をこの中に配置します。  
+* third\_party/direct3d11.interop.h がプロジェクトフォルダに配置されている必要があります。
 * OpenCVを自分で用意する場合、CMakeが検出できるパスに配置してください（vcpkg推奨）。
 
 ### **ビルド環境の構築**
@@ -61,9 +61,11 @@
    * Windows 用 C++ CMake ツール  
    * Windows SDK  
    * x64/x86 用 MSVC ビルドツール  
-2. **x64 Native Tools Command Prompt for VS 2022** を開きます。  
+2. **x64 Native Tools Command Prompt for VS 2026** を開きます。  
 3. コマンドプロンプトから code . と入力してプロジェクトを開きます。  
    * DLLを **x64** でビルドするために必ずこの手順を踏んでください。
+vcpkgの導入の参考はこちら
+https://learn.microsoft.com/ja-jp/vcpkg/get_started/get-started-vscode?pivots=shell-powershell
 
 ### **ビルドの手順**
 
