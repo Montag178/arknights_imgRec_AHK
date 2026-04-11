@@ -63,8 +63,8 @@
    * x64/x86 用 MSVC ビルドツール  
 2. **x64 Native Tools Command Prompt for VS 2026** を開きます。  
 3. コマンドプロンプトから code . と入力してプロジェクトを開きます。  
-   * DLLを **x64** でビルドするために必ずこの手順を踏んでください。
-vcpkgの導入の参考はこちら
+   * DLLを **x64** でビルドするために必ずこの手順を踏んでください。  
+vcpkgの導入の参考はこちら  
 https://learn.microsoft.com/ja-jp/vcpkg/get_started/get-started-vscode?pivots=shell-powershell
 
 ### **ビルドの手順**
