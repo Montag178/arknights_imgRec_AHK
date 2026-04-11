@@ -1,0 +1,37 @@
+name: Build Screencap DLL
+
+on:
+  push:
+    tags:
+      - 'v*'   # v1.0 などのタグを push したときに実行
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: master
+
+      - name: Install OpenCV
+        run: |
+          vcpkg install opencv:x64-windows
+
+      - name: Configure (CMake Preset: release)
+        run: |
+          cmake --preset release
+
+      - name: Build (CMake Preset: release)
+        run: |
+          cmake --build --preset release
+
+      - name: Upload DLL artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Screencap-dll
+          path: build/Screencap.dll
