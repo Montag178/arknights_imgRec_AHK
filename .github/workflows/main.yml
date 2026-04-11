@@ -14,6 +14,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+
       - name: Install Ninja
         uses: seanmiddleditch/gha-setup-ninja@v4
 
@@ -21,6 +24,9 @@ jobs:
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgGitCommitId: bb4f525cbddd409bdc714ee3043b15ff7766af59
+      - name: Install OpenCV
+        run: |
+          vcpkg install opencv:x64-windows
 
       - name: Configure CMake preset release
         run: |
@@ -35,3 +41,4 @@ jobs:
         with:
           name: Screencap-dll
           path: bin/Screencap.dll
+
