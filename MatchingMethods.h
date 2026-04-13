@@ -19,3 +19,5 @@ struct ProcessResult
 // Input: cv::Mat image in CV_8UC4 format, image width and height, is_test_mode for visualization
 // Output: ProcessResult with processed image (if test mode) and button coordinates
 ProcessResult ProcessViaLineDetection(const cv::Mat& image, int width, int height, bool is_test_mode = false);
+// ProcessResult ProcessViaFastLineDetector(const cv::Mat& image, int width, int height, bool is_test_mode = false);
+ProcessResult ProcessViaRotatedHistogram(const cv::Mat& image, int width, int height, bool is_test_mode = false);

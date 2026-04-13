@@ -200,8 +200,9 @@ int ProcessCapturedFrame(CaptureData& captureData, int mode,
         cv::Mat image(height, width, CV_8UC4, captureData.mapped.pData, captureData.mapped.RowPitch);
         
         // Process using line detection method
-        ProcessResult result = ProcessViaLineDetection(image, width, height, false);
+        // ProcessResult result = ProcessViaLineDetection(image, width, height, false);
         
+        ProcessResult result = ProcessViaLineDetection(image, width, height, false);
         // Log debug information
         if (!result.debug_info.empty()) {
             std::cout << result.debug_info;
