@@ -202,7 +202,7 @@ int ProcessCapturedFrame(CaptureData& captureData, int mode,
         // Process using line detection method
         // ProcessResult result = ProcessViaLineDetection(image, width, height, false);
         
-        ProcessResult result = ProcessViaLineDetection(image, width, height, false);
+        ProcessResult result = ProcessViaRotatedHistogram(image, width, height, false);
         // Log debug information
         if (!result.debug_info.empty()) {
             std::cout << result.debug_info;
@@ -322,10 +322,11 @@ int ShowProcessedImage() {
         // Create cv::Mat from captured frame data
         cv::Mat image(height, width, CV_8UC4, captureData.mapped.pData, captureData.mapped.RowPitch);
         
+        timer_start();
         // Process the captured image using line detection method
         bool is_test_mode = true; // prepare black image for visualization in line detection method
-        ProcessResult result = ProcessViaLineDetection(image, width, height, is_test_mode);
-        
+        ProcessResult result = ProcessViaRotatedHistogram(image, width, height, is_test_mode);
+        timer_end("new method processing time: ");
         // Log debug information
         std::cout << result.debug_info;
         
